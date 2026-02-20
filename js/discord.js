@@ -135,6 +135,11 @@ function buildStatusUpdateEmbed(order, newStatus) {
                     inline: true
                 },
                 {
+                    name: '📞 Kontakt',
+                    value: customer.phone || customer.discord || '—',
+                    inline: true
+                },
+                {
                     name: '📦 Produkte',
                     value: itemLines || '—',
                     inline: false
