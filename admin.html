@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BulletFarm — Admin Panel</title>
+    <meta name="description" content="BulletFarm Admin Panel — Produkte, Bestellungen und Einstellungen verwalten.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- ═══ HEADER ═══ -->
+    <header class="header">
+        <div class="header-inner">
+            <a href="index.html" class="brand" style="text-decoration:none">
+                <div class="brand-logo" style="background:linear-gradient(135deg, var(--accent), var(--primary))">⚙️
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">BulletFarm</span>
+                    <span class="brand-sub">Admin Panel</span>
+                </div>
+            </a>
+            <nav class="nav">
+                <a href="index.html" class="nav-btn" style="text-decoration:none">
+                    🛍️ <span class="nav-label">Zum Shop</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ═══ APP CONTAINER ═══ -->
+    <div id="adminApp">
+        <div class="login-container">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- ═══ TOAST HOST ═══ -->
+    <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+    <!-- ═══ SCRIPTS ═══ -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/discord.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>
