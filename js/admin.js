@@ -14,6 +14,7 @@ let activeSection = 'orders';
 const ADMIN_SECTIONS = [
   { id: 'products', label: '📦 Produkte', icon: '📦', adminOnly: true },
   { id: 'categories', label: '📂 Kategorien', icon: '📂', adminOnly: true },
+  { id: 'resources', label: '💎 Ressourcen', icon: '💎', adminOnly: true },
   { id: 'orders', label: '📋 Bestellungen', icon: '📋', adminOnly: false },
   { id: 'theme', label: '🎨 Theme', icon: '🎨', adminOnly: true },
   { id: 'discord', label: '💬 Discord', icon: '💬', adminOnly: true },
@@ -161,6 +162,7 @@ function renderSection(section) {
   switch (section) {
     case 'products': renderAdminProducts(content); break;
     case 'categories': renderAdminCategories(content); break;
+    case 'resources': renderAdminResources(content); break;
     case 'orders': renderAdminOrders(content); break;
     case 'theme': renderAdminTheme(content); break;
     case 'discord': renderAdminDiscord(content); break;
@@ -228,7 +230,13 @@ function renderAdminProducts(el) {
 
         <!-- Resources -->
         <div class="mt-lg" style="border:1px solid var(--glass-border); border-radius:var(--radius); padding:var(--space-md)">
-          <div class="form-label mb-sm">Ressourcen</div>
+          <div class="flex items-center gap-sm mb-sm">
+            <div class="form-label" style="margin:0">Ressourcen</div>
+            <select class="select" id="rPreset" style="width:auto; min-width:160px; padding:5px 10px; font-size:0.8rem" onchange="applyResourcePreset()">
+              <option value="">— Preset wählen —</option>
+              ${(getResourcePresets()).map(p => `<option value="${escapeHtml(p.name)}" data-color="${escapeHtml(p.color)}">${escapeHtml(p.name)}</option>`).join('')}
+            </select>
+          </div>
           <div class="flex gap-sm flex-wrap items-center">
             <input class="input" id="rName" placeholder="Name" style="width:150px">
             <input class="input" id="rAmount" type="text" placeholder="Menge" style="width:120px">
@@ -968,6 +976,128 @@ async function testWebhook() {
   }
 }
 
+/* ═══════════════════════════════════
+   RESOURCE PRESETS SECTION
+   ═══════════════════════════════════ */
+
+function getResourcePresets() {
+  const settings = window.__shopSettings || {};
+  return Array.isArray(settings.resourcePresets) ? settings.resourcePresets : [];
+}
+
+function applyResourcePreset() {
+  const sel = document.getElementById('rPreset');
+  if (!sel || !sel.value) return;
+
+  const opt = sel.selectedOptions[0];
+  const name = sel.value;
+  const color = opt?.dataset?.color || '#60a5fa';
+
+  document.getElementById('rName').value = name;
+  document.getElementById('rColor').value = color;
+  document.getElementById('rAmount')?.focus();
+
+  // Reset dropdown
+  sel.value = '';
+}
+
+function renderAdminResources(el) {
+  const presets = getResourcePresets();
+
+  el.innerHTML = `
+    <div class="card mb-md fade-in">
+      <div class="card-header">
+        <h3>➕ Neues Ressourcen-Preset</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted text-sm mb-md">Presets erscheinen als Schnellauswahl beim Hinzufügen von Ressourcen zu Produkten.</p>
+        <div class="flex gap-sm flex-wrap items-center">
+          <input class="input" id="newResName" placeholder="Name (z.B. DeadCoin)" style="flex:1; min-width:180px">
+          <input type="color" id="newResColor" value="#60a5fa" style="width:50px; height:38px; border:1px solid var(--glass-border); border-radius:var(--radius-sm); cursor:pointer">
+          <button class="btn btn-success" onclick="addResourcePreset()">✅ Erstellen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card fade-in">
+      <div class="card-header">
+        <h3>💎 Ressourcen-Presets (${presets.length})</h3>
+      </div>
+      <div class="card-body">
+        ${presets.length === 0 ? '<div class="empty-state"><div class="empty-state-icon">💎</div><div class="empty-state-text">Noch keine Presets angelegt</div></div>' : `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Farbe</th><th>Name</th><th>Aktionen</th></tr></thead>
+            <tbody>
+              ${presets.map((p, i) => `
+              <tr>
+                <td><span style="display:inline-block; width:24px; height:24px; border-radius:50%; background:${escapeHtml(p.color || '#60a5fa')}; border:2px solid var(--glass-border)"></span></td>
+                <td><strong>${escapeHtml(p.name)}</strong></td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteResourcePreset(${i})">🗑️</button></td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+async function addResourcePreset() {
+  const name = (document.getElementById('newResName')?.value || '').trim();
+  const color = document.getElementById('newResColor')?.value || '#60a5fa';
+
+  if (!name) {
+    showToast('Fehler', 'Name fehlt', { type: 'error' });
+    return;
+  }
+
+  const presets = getResourcePresets();
+
+  // Check duplicate
+  if (presets.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    showToast('Fehler', 'Preset existiert bereits', { type: 'error' });
+    return;
+  }
+
+  presets.push({ name, color });
+
+  try {
+    const sb = getSupabase();
+    const settings = window.__shopSettings || {};
+    settings.resourcePresets = presets;
+    const { error } = await sb.from('shop_settings').update({ data: settings }).eq('id', 1);
+    if (error) throw error;
+    window.__shopSettings = settings;
+    showToast('✅ Erstellt', name);
+    renderSection('resources');
+  } catch (err) {
+    showToast('Fehler', err.message, { type: 'error' });
+  }
+}
+
+async function deleteResourcePreset(index) {
+  if (!confirm('Preset wirklich löschen?')) return;
+
+  const presets = getResourcePresets();
+  presets.splice(index, 1);
+
+  try {
+    const sb = getSupabase();
+    const settings = window.__shopSettings || {};
+    settings.resourcePresets = presets;
+    const { error } = await sb.from('shop_settings').update({ data: settings }).eq('id', 1);
+    if (error) throw error;
+    window.__shopSettings = settings;
+    showToast('🗑️ Gelöscht');
+    renderSection('resources');
+  } catch (err) {
+    showToast('Fehler', err.message, { type: 'error' });
+  }
+}
+
 /* ═══ Expose globals ═══ */
 window.addResourceToEditor = addResourceToEditor;
 window.removeEditorResource = removeEditorResource;
@@ -987,3 +1117,6 @@ window.saveWebhook = saveWebhook;
 window.testWebhook = testWebhook;
 window.loadAdminData = loadAdminData;
 window.renderSection = renderSection;
+window.applyResourcePreset = applyResourcePreset;
+window.addResourcePreset = addResourcePreset;
+window.deleteResourcePreset = deleteResourcePreset;
