@@ -1,18 +1,19 @@
 /* ═══════════════════════════════════════════
    Auth Module — BulletFarm Shop
-   Login/Logout + Role-based access
+   Login, logout, role management
    ═══════════════════════════════════════════ */
 
 let currentUser = null;
-let currentRole = null; // 'admin' | 'status_only' | null
+let currentRole = null;
+
+const ROLE_ADMIN = 'admin';
+const ROLE_SHOP_MANAGER = 'shop_manager';
+const ROLE_STATUS_ONLY = 'status_only';
 
 async function signIn(email, password) {
     const sb = getSupabase();
-    if (!sb) throw new Error('Supabase not initialized');
-
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
-
     currentUser = data.user;
     await fetchRole();
     return { user: currentUser, role: currentRole };
@@ -20,48 +21,57 @@ async function signIn(email, password) {
 
 async function signOut() {
     const sb = getSupabase();
-    if (!sb) return;
     await sb.auth.signOut();
     currentUser = null;
     currentRole = null;
-}
-
-async function fetchRole() {
-    const sb = getSupabase();
-    if (!sb) return null;
-
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) {
-        currentUser = null;
-        currentRole = null;
-        return null;
-    }
-
-    currentUser = user;
-    const { data, error } = await sb.from('profiles').select('role').eq('id', user.id).maybeSingle();
-    if (error) {
-        console.warn('Role fetch failed:', error);
-        currentRole = null;
-        return null;
-    }
-
-    currentRole = data?.role || null;
-    return currentRole;
 }
 
 async function getSession() {
     const sb = getSupabase();
     if (!sb) return null;
     const { data } = await sb.auth.getSession();
-    return data?.session || null;
+    if (data?.session?.user) {
+        currentUser = data.session.user;
+        return data.session;
+    }
+    return null;
+}
+
+async function fetchRole() {
+    if (!currentUser) return;
+    const sb = getSupabase();
+    const { data, error } = await sb
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+    if (error) {
+        console.error('Role fetch error:', error);
+        currentRole = null;
+        return;
+    }
+    currentRole = data?.role || ROLE_STATUS_ONLY;
+}
+
+function hasRole(...roles) {
+    return roles.includes(currentRole);
 }
 
 function isAdmin() {
-    return currentRole === 'admin';
+    return hasRole(ROLE_ADMIN);
 }
 
-function isStatusOnly() {
-    return currentRole === 'status_only';
+function canManageShop() {
+    return hasRole(ROLE_ADMIN, ROLE_SHOP_MANAGER);
+}
+
+function canManageOrders() {
+    return hasRole(ROLE_ADMIN, ROLE_SHOP_MANAGER, ROLE_STATUS_ONLY);
+}
+
+function canDeleteOrders() {
+    return hasRole(ROLE_ADMIN, ROLE_SHOP_MANAGER);
 }
 
 function isAuthenticated() {
